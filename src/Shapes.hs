@@ -41,7 +41,7 @@ emission :: Float -> [Float] -> WallDir -> Material Float
 emission strength color dir =
     Material
         { getMix =
-            \col -> [255, 255, 255]
+            \col -> color
         , getMatBounceDir =
             \v -> Nothing
         }

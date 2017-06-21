@@ -18,9 +18,9 @@ import Vec3
 import Base
 
 
-(width, height) = (fromInteger 800, fromInteger 600)
+(width, height) = (fromInteger 300, fromInteger 150)
 
-amountOfSamples = 40
+amountOfSamples = 5
 
 oneSecond = 1000 * 1000
 
