@@ -2,13 +2,27 @@ module Lib where
 
 import System.IO
 import System.Random
-import qualified Data.ByteString as BS
+import Data.Time.Clock
 import Data.Char
+
+import Control.Concurrent
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TVar
+import Control.DeepSeq
+
+import qualified Data.ByteString as BS
 
 import Raycaster
 
 import Vec3
 import Base
+
+
+(width, height) = (fromInteger 800, fromInteger 600)
+
+amountOfSamples = 40
+
+oneSecond = 1000 * 1000
 
 strToByteString :: String -> BS.ByteString
 strToByteString = BS.pack . map (fromIntegral . ord)
@@ -38,32 +52,71 @@ render (width, height) (x, y) =
 start :: IO ()
 start = do
 
-    let (width, height) = (fromInteger 400, fromInteger 300)
 
-    let amountOfSamples = 20
+    samples <- newTVarIO [] :: (Num a) => IO (TVar [[[[a]]]]) -- Samples x width x height x colors
 
     putStrLn $ "Generating a " ++ show (floor width) ++ "x" ++ show (floor height) ++ " image with " ++ show amountOfSamples ++ " samples..."
+    
+    sequence_ [forkIO $ oneSample samples i | i <- [0..amountOfSamples-1]]
+
+    start <- getCurrentTime
+
+    let wait lastDone = do
+            amount <- fmap length $ readTVarIO samples
+            if fromIntegral amount == fromIntegral amountOfSamples -- For some reason amountOfSamples is an Integer
+                then return ()
+                else do
+                    if amount /= lastDone
+                        then putStrLn $ "Done " ++ show amount ++ " / " ++ show amountOfSamples ++ " samples."
+                        else return ()
+                    threadDelay (oneSecond `quot` 100)
+                    wait amount
+    wait (-1)
+
+    end <- getCurrentTime
+
+    let diff = diffUTCTime end start
+
+    putStrLn $ "Generating samples took " ++ show diff ++ " which is " ++ show (diff / fromIntegral amountOfSamples) ++ " per sample."
+
+    putStrLn "Combining samples..."
+
+    allSamples <- readTVarIO samples
+
     let image =
             [
                 [
-                let xRng = makeRng (vec x y 0)
-                    yRng = makeRng (vec x y 1)
-                    xs = take amountOfSamples $ randomRs (0, 1) xRng
-                    ys = take amountOfSamples $ randomRs (0, 1) yRng
-                    renderedSamples =
-                        zipWith
-                            (\x' y' -> render (width, height) (x + x', y + y'))
-                            xs ys
-                    avgs = map (\i -> fromIntegral $ sum (map (!!i) renderedSamples) `quot` (length renderedSamples)) [0,1,2]
-                in avgs
+                let pixels = map (\sample -> sample !! (floor y) !! (floor x)) allSamples
+                    cols = [ (sum $ map (!! i) pixels) `quot` (fromIntegral $ length pixels) | i <- [0..2]]
+                in cols
                 | x <- [0..width-1]
                 ]
             | y <- [0..height-1]
             ]
-        bs = generatePPM image
+
+    image `deepseq` putStrLn "Saving..."
+
+    let bs = generatePPM image
 
     file <- openFile "Out.ppm" WriteMode
     BS.hPutStr file bs
     hClose file
+    
+    putStrLn "All Done!"
 
-    putStrLn "Done."
+oneSample :: TVar [[[[Integer]]]] -> Integer -> IO ()
+oneSample samples threadNr = 
+    atomically (
+            let image =
+                    [
+                        [
+                        let rng = makeRng (vec x y $ fromIntegral threadNr)
+                            (x', rng') = randomR (0, 1) rng
+                            (y', _) = randomR (0, 1) rng'
+                        in map (toInteger . fromIntegral) $ render (width, height) (x + x', y + y')
+                        | x <- [0..width-1]
+                        ]
+                    | y <- [0..height-1]
+                    ]
+            in image `deepseq` modifyTVar samples (image:)
+        )
