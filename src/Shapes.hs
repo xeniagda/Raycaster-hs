@@ -48,19 +48,30 @@ emission strength color dir =
 
 data WallDir = X | Y | Z
 
+getDirs :: (Num a) => WallDir -> ((Vec3 a -> a), (Vec3 a -> a), (Vec3 a -> a))
+getDirs dir =
+    case dir of
+        X -> (getX, getY, getZ)
+        Y -> (getY, negate . getX, getZ)
+        Z -> (getZ, getY, negate . getX)
+
+rotate from to pos =
+    let (a, b, c) = getDirs from
+    in case to of
+        X -> vec (a pos) (b pos) (c pos)
+        Y -> vec (negate $ b pos) (a pos) (c pos)
+        Z -> vec (negate $ c pos) (b pos) (a pos)
+
 makeSquare :: Vec3 Float -> Float -> WallDir -> (WallDir -> Material Float) -> Shape Float
 makeSquare pos size dir material =
     Shape
         { intersects = \v1 v2 ->
-            let [getInter, get1, get2] =
-                    case dir of
-                        X -> [getX, getY, getZ]
-                        Y -> [getY, getX, getZ]
-                        Z -> [getZ, getX, getY]
+            let (getInter, get1, get2) = getDirs dir
+                inter = getIntersection dir pos v1 v2
             in
                 (getInter v1 < getInter pos) /= (getInter v2 < getInter pos) -- Goes through
-                && get1 v1 > get1 pos - size && get1 v1 < get1 pos + size
-                && get2 v1 > get2 pos - size && get2 v1 < get2 pos + size
+                && get1 inter > get1 pos - size && get1 inter < get1 pos + size
+                && get2 inter > get2 pos - size && get2 inter < get2 pos + size
         , getBounceDir = getMatBounceDir $ material dir
         , getColorMix = getMix $ material dir
         }
@@ -69,13 +80,10 @@ makeCirc :: Vec3 Float -> Float -> WallDir -> (WallDir -> Material Float) -> Sha
 makeCirc pos size dir material =
     Shape
         { intersects = \v1 v2 ->
-            let [getInter, get1, get2] =
-                    case dir of
-                        X -> [getX, getY, getZ]
-                        Y -> [getY, getX, getZ]
-                        Z -> [getZ, getX, getY]
-                d1 = get1 v1 - get1 pos
-                d2 = get2 v1 - get2 pos
+            let (getInter, get1, get2) = getDirs dir
+                inter = getIntersection dir pos v1 v2
+                d1 = get1 inter - get1 pos
+                d2 = get2 inter - get2 pos
             in
                 (getInter v1 < getInter pos) /= (getInter v2 < getInter pos) -- Goes through
                 && d1 ^ 2 + d2 ^ 2 < size ^ 2
@@ -91,3 +99,11 @@ makeFloor height material =
         , getBounceDir = getMatBounceDir $ material Y
         , getColorMix = getMix $ material Y
         }
+
+getIntersection dir pos v1 v2 =
+    rotate X dir $ getInterX (getX $ rotate dir X pos) (rotate dir X v1) (rotate dir X v2)
+
+getInterX x v1 v2 =
+    let y = (x - getX v1) * (getY v1 - getY v2) / (getX v1 - getX v2) + getY v1
+        z = (x - getX v1) * (getZ v1 - getZ v2) / (getX v1 - getX v2) + getZ v1
+    in vec x y z

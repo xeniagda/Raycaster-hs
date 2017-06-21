@@ -19,11 +19,13 @@ defaultWorld =
         , getCameraRot = (-pi/8, pi/8)
         , getFOV = pi / 4 -- 22.5°
         , getShapes = 
-            [ makeFloor  0                    $ diffuse  1 lightGray -- Ground
-            , makeFloor  5                    $ emission 10 [255, 230, 200]    -- Light source
-            , makeSquare (vec (-1) 1 4) 1   X $ diffuse  1 lightGray'
-            , makeSquare (vec (-2) 2 4) 1   Y $ diffuse  1 lightGray'
-            , makeSquare (vec (-2) 1 3) 1   Z $ diffuse  1 lightGray'
+            [ makeFloor  0                       $ diffuse  1 lightGray -- Ground
+            , makeFloor  5                       $ emission 10 [255, 230, 200]    -- Light source
+            , makeSquare (vec (-1) 1 4)    1   X $ diffuse  1 lightGray'
+            , makeSquare (vec (-2) 2 4)    1   Y $ diffuse  1 lightGray'
+            , makeSquare (vec (-2) 1 3)    1   Z $ diffuse  1 lightGray'
+            , makeCirc   (vec (-1) 1 7)    3   Z $ diffuse  0 white -- Mirror
+            , makeCirc   (vec (-1) 1 7.01) 3.2 Z $ diffuse  1 black -- Outline
             ]
         }
 
@@ -48,7 +50,7 @@ rayCast (bounces, steps) world rayStart dir =
     let rayEnd = rayStart .+ dir
         collidingShapes = filter (\s -> intersects s rayStart rayEnd) $ getShapes world
     in case collidingShapes of
-        [] -> rayCast (bounces, steps - 1) world rayEnd $ dir `scalarMult` 1
+        [] -> rayCast (bounces, steps - 1) world rayEnd $ dir `scalarMult` 2
         (wall:_) ->
             if getLength dir < 0.005
                 then
@@ -65,8 +67,8 @@ rayCast (bounces, steps) world rayStart dir =
 getColor :: World Float -> (Float, Float) -> [Float]
 getColor world pos =
     rayCast
-        (3, 200)
+        (3, 60)
         world
         (getCameraPos world)
-        (getRayDirection defaultWorld pos `scalarMult` 0.05)
+        (getRayDirection defaultWorld pos `scalarMult` 1)
 

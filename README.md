@@ -9,4 +9,4 @@ It's now multithreaded, but still *very* slow. It currently takes ~1 hour to gen
 
 To use it, you can run the `Raycaster-exe` file, which will generate the image above.
 
-Currently working on making it faster
+
