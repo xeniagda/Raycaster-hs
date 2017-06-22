@@ -7,13 +7,12 @@ import System.Random
 data Material a =
     Material
         { getMix :: [Float] -> [Float]
-        , getMatBounceDir :: Vec3 a -> Maybe (Vec3 a) -- Ray -> New ray
+        , getMatBounceDir :: StdGen -> Vec3 a -> Maybe (Vec3 a) -- Ray -> New ray
         }
 
-diffuseBounce :: Float -> Vec3 Float -> Vec3 Float
-diffuseBounce scatter v =
-    let r = makeRng v
-        [x, y, z] = take 3 $ normals r
+diffuseBounce :: StdGen -> Float -> Vec3 Float -> Vec3 Float
+diffuseBounce rng scatter v =
+    let [x, y, z] = take 3 $ normals rng
     in v .* (vec (x * scatter + 1) (y * scatter + 1) (z * scatter + 1))
 
 diffuse :: Float -> [Float] -> WallDir -> Material Float
@@ -22,19 +21,19 @@ diffuse scatter color dir =
         { getMix =
             \col ->
                 let avg = sum col / 3
-                in 
+                in
                     zipWith (\c ref ->
                         let reflect = (ref + avg * 3) / 4 * c / 256
                         in (reflect * 3 + ref) / 4
                     ) color col
         , getMatBounceDir =
-            \v -> Just $
-                let bounce = 
+            \rng v -> Just $
+                let bounce =
                         case dir of
                             X -> vec (-1) 1 1
                             Y -> vec 1 (-1) 1
                             Z -> vec 1 1 (-1)
-                in diffuseBounce scatter v .* bounce
+                in diffuseBounce rng scatter v .* bounce
         }
 
 emission :: Float -> [Float] -> WallDir -> Material Float
@@ -43,7 +42,7 @@ emission strength color dir =
         { getMix =
             \col -> color
         , getMatBounceDir =
-            \v -> Nothing
+            \rng v -> Nothing
         }
 
 data WallDir = X | Y | Z
@@ -101,7 +100,10 @@ makeFloor height material =
         }
 
 getIntersection dir pos v1 v2 =
-    rotate X dir $ getInterX (getX $ rotate dir X pos) (rotate dir X v1) (rotate dir X v2)
+    rotate X dir $
+        getInterX (getX $ rotate dir X pos)
+        (rotate dir X v1)
+        (rotate dir X v2)
 
 getInterX x v1 v2 =
     let y = (x - getX v1) * (getY v1 - getY v2) / (getX v1 - getX v2) + getY v1

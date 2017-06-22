@@ -2,6 +2,7 @@ module Lib where
 
 import System.IO
 import System.Random
+import System.Environment
 import Data.Time.Clock
 import Data.Char
 
@@ -16,11 +17,8 @@ import Raycaster
 
 import Vec3
 import Base
+import Args
 
-
-(width, height) = (fromInteger 600, fromInteger 400)
-
-amountOfSamples = 40
 
 oneSecond = 1000 * 1000
 
@@ -42,32 +40,38 @@ pixToSpace (width, height) (x, y) =
         ( x / avg * 2 - 1
         , y / avg * 2 - 1)
 
-render :: (Integral a) => (Float, Float) -> (Float, Float) -> [a]
-render (width, height) (x, y) =
+render :: (Integral a) => StdGen -> Props -> World Float -> (Float, Float) -> (Float, Float) -> [a]
+render rng props world (width, height) (x, y) =
     map
         (floor . realToFrac)
-        $ getColor defaultWorld
+        $ getColor rng props world
             $ pixToSpace (width, height) (x, y)
 
 start :: IO ()
 start = do
+    props <- fmap (parse defaultProps) getArgs
 
+    let world = defaultWorld props
+        (width, height) = getSize props
 
     samples <- newTVarIO [] :: (Num a) => IO (TVar [[[[a]]]]) -- Samples x width x height x colors
 
-    putStrLn $ "Generating a " ++ show (floor width) ++ "x" ++ show (floor height) ++ " image with " ++ show amountOfSamples ++ " samples..."
-    
-    sequence_ [forkIO $ oneSample samples i | i <- [0..amountOfSamples-1]]
+    putStrLn $ "Generating a " ++ show width ++ "x" ++ show height ++ " image with " ++ show (getSamples props) ++ " samples..."
+    if isVerbose props
+        then putStrLn $ "Settings: " ++ show props
+        else return ()
+
+    sequence_ [forkIO $ oneSample samples props world i | i <- [0..getSamples props-1]]
 
     start <- getCurrentTime
 
     let wait lastDone = do
             amount <- fmap length $ readTVarIO samples
-            if fromIntegral amount == fromIntegral amountOfSamples -- For some reason amountOfSamples is an Integer
+            if fromIntegral amount == fromIntegral (getSamples props) -- For some reason amountOfSamples is an Integer
                 then return ()
                 else do
                     if amount /= lastDone
-                        then putStrLn $ "Done " ++ show amount ++ " / " ++ show amountOfSamples ++ " samples."
+                        then putStrLn $ "Done " ++ show amount ++ " / " ++ show (getSamples props) ++ " samples."
                         else return ()
                     threadDelay (oneSecond `quot` 100)
                     wait amount
@@ -77,7 +81,7 @@ start = do
 
     let diff = diffUTCTime end start
 
-    putStrLn $ "Generating samples took " ++ show diff ++ " which is " ++ show (diff / fromIntegral amountOfSamples) ++ " per sample."
+    putStrLn $ "Generating samples took " ++ show diff ++ " which is " ++ show (diff / fromIntegral (getSamples props)) ++ " per sample."
 
     putStrLn "Combining samples..."
 
@@ -86,7 +90,7 @@ start = do
     let image =
             [
                 [
-                let pixels = map (\sample -> sample !! (floor y) !! (floor x)) allSamples
+                let pixels = map (\sample -> sample !! y !! x) allSamples
                     cols = [ (sum $ map (!! i) pixels) `quot` (fromIntegral $ length pixels) | i <- [0..2]]
                 in cols
                 | x <- [0..width-1]
@@ -101,22 +105,43 @@ start = do
     file <- openFile "Out.ppm" WriteMode
     BS.hPutStr file bs
     hClose file
-    
+
     putStrLn "All Done!"
 
-oneSample :: TVar [[[[Integer]]]] -> Integer -> IO ()
-oneSample samples threadNr = 
-    atomically (
-            let image =
-                    [
-                        [
-                        let rng = makeRng (vec x y $ fromIntegral threadNr)
-                            (x', rng') = randomR (0, 1) rng
-                            (y', _) = randomR (0, 1) rng'
-                        in map (toInteger . fromIntegral) $ render (width, height) (x + x', y + y')
-                        | x <- [0..width-1]
-                        ]
-                    | y <- [0..height-1]
-                    ]
-            in image `deepseq` modifyTVar samples (image:)
-        )
+oneSample :: (Integral a) => TVar [[[[Integer]]]] -> Props -> World Float -> a -> IO ()
+oneSample samples props world threadNr = do
+    let generators current =
+            let (a, b) = split current
+            in a : generators b
+        (width, height) = getSize props
+
+    tSeed <- fmap (fst . random . (!! fromIntegral threadNr) . generators) getStdGen :: IO Int
+
+    image <- sequence
+            [ sequence
+                [
+                    do
+                        seed <- randomIO :: IO Int
+
+                        let gen = mkStdGen $ seed + tSeed
+                            (r1, r2) = split gen
+                            [x', y'] = take 2 $ randomRs (0, 1) r1 :: [Float] -- Go fuck yourself
+                        return $ map (toInteger . fromIntegral)
+                            $ render
+                                r2
+                                props
+                                world
+                                ( fromIntegral width
+                                , fromIntegral height
+                                )
+                                ( x' + fromIntegral x
+                                , y' + fromIntegral y
+                                )
+                | x <- [0..width-1]
+                ]
+            | y <- [0..height-1]
+            ]
+    atomically $
+        image `deepseq`
+            modifyTVar samples (image:)
+
