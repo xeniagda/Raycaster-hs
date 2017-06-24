@@ -45,30 +45,31 @@ getRayDirection world (x, y) =
 
 rayCast ::     StdGen       -- Random
             -> (Int, Int)   -- Amount of bounces, Amount of steps max
+            -> Props
             -> World Float  -- World
             -> Vec3 Float   -- Ray position
             -> Vec3 Float   -- Ray direction
             -> [Float]      -- Color, 0-255
-rayCast _ (0, _) _ _ _ = gray -- Sky
-rayCast _ (_, 0) _ _ _ = gray -- Sky
+rayCast _ (0, _) _ _ _ _ = gray -- Sky
+rayCast _ (_, 0) _ _ _ _ = gray -- Sky
 
-rayCast rng (bounces, steps) world rayStart dir =
+rayCast rng (bounces, steps) props world rayStart dir =
     let rayEnd = rayStart .+ dir
         collidingShapes = filter (\s -> intersects s rayStart rayEnd) $ getShapes world
     in case collidingShapes of
-        [] -> rayCast rng (bounces, steps - 1) world rayEnd $ dir `scalarMult` 1.3
+        [] -> rayCast rng (bounces, steps - 1) props world rayEnd $ dir `scalarMult` getEmptyIncrease props
         (wall:_) ->
-            if getLength dir < 0.005
+            if getLength dir < getMinCollide props
                 then
                     let (rng', r) = split rng
                         bounceDir = getBounceDir wall r dir
                     in case bounceDir of
                         Just dir ->
-                            let bounceCol = rayCast rng' (bounces - 1, steps) world rayStart $ normalize dir
+                            let bounceCol = rayCast rng' (bounces - 1, steps) props world rayStart $ normalize dir
                             in getColorMix wall bounceCol
                         Nothing -> getColorMix wall [0, 0, 0]
                 else
-                    rayCast rng (bounces, steps - 1) world rayStart $ dir `scalarMult` 0.5
+                    rayCast rng (bounces, steps - 1) props world rayStart $ dir `scalarMult` getCollideShrink props
 
 
 getColor :: StdGen -> Props -> World Float -> (Float, Float) -> [Float]
@@ -76,6 +77,7 @@ getColor rng props world pos =
     rayCast
         rng
         (getMaxBounces props, getMaxSteps props)
+        props
         world
         (getCameraPos world)
         (getRayDirection world pos)

@@ -56,7 +56,7 @@ start = do
 
     samples <- newTVarIO [] :: (Num a) => IO (TVar [[[[a]]]]) -- Samples x width x height x colors
 
-    putStrLn $ "Generating a " ++ show width ++ "x" ++ show height ++ " image with " ++ show (getSamples props) ++ " samples..."
+    putStrLn $ "Generating " ++ getOutput props ++ " " ++ show width ++ "x" ++ show height ++ " with " ++ show (getSamples props) ++ " samples..."
     if isVerbose props
         then putStrLn $ "Settings: " ++ show props
         else return ()
@@ -102,7 +102,7 @@ start = do
 
     let bs = generatePPM image
 
-    file <- openFile "Out.ppm" WriteMode
+    file <- openFile (getOutput props) WriteMode
     BS.hPutStr file bs
     hClose file
 

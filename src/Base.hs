@@ -13,7 +13,9 @@ data Props =
         , getMinCollide :: Float
         , getCollideShrink :: Float
         , getEmptyIncrease :: Float
+
         , isVerbose :: Bool
+        , getOutput :: String
         }
     deriving Show
 
@@ -27,7 +29,9 @@ defaultProps =
         , getMinCollide = 0.005
         , getCollideShrink = 0.5
         , getEmptyIncrease = 1.3
+
         , isVerbose = False
+        , getOutput = "Out.ppm"
         }
 
 

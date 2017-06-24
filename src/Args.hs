@@ -12,6 +12,12 @@ parse p ("-v" : rest) =
         ( p { isVerbose = True } )
         rest
 
+parse p ("-o" : path : rest) = 
+    parse
+        ( p { getOutput = path } )
+        rest
+
+
 parse p ("-s" : n : rest) = 
     parse
         ( p { getSamples = read n } )
@@ -40,4 +46,19 @@ parse p ("-B" : n : rest) =
 parse p ("-S" : n : rest) = 
     parse 
         ( p { getMaxSteps = read n} ) 
+        rest
+
+parse p ("--min-collide" : n : rest) = 
+    parse 
+        ( p { getMinCollide = read n} ) 
+        rest
+
+parse p ("--collide-shrink" : n : rest) =
+    parse 
+        ( p { getCollideShrink = read n} ) 
+        rest
+
+parse p ("--empty-increase" : n : rest) =
+    parse 
+        ( p { getEmptyIncrease = read n} ) 
         rest
