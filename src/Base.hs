@@ -5,7 +5,7 @@ import System.Random
 
 data Props =
     Props
-        { getSamples :: Integer
+        { getSamples :: Int
         , getSize :: (Int, Int) -- (width, height)
         , getFOVdeg :: Float -- In degrees
         , getMaxBounces :: Int

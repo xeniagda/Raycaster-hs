@@ -23,12 +23,12 @@ defaultWorld props =
         , getShapes =
             [ makeFloor  0                       $ diffuse  1 lightGray -- Ground
             , makeFloor  5                       $ emission 10 [255, 230, 200]    -- Light source
-            , makeSquare (vec (-1) 1 4)    1   X $ diffuse  1 lightGray'
-            , makeSquare (vec (-2) 2 4)    1   Y $ diffuse  1 lightGray'
-            , makeSquare (vec (-2) 1 3)    1   Z $ diffuse  1 lightGray'
-            , makeSquare (vec (-3) 1 4)    1   X $ diffuse  1 lightGray'
-            , makeSquare (vec (-2) 2 4)    1   Y $ diffuse  1 lightGray'
-            , makeSquare (vec (-2) 1 5)    1   Z $ diffuse  1 lightGray'
+            , makeSquare (vec (-1) 1 4)    1   X $ diffuse  1 [255, 0, 0] -- Right
+            , makeSquare (vec (-2) 2 4)    1   Y $ diffuse  1 [255, 255, 255] -- Up
+            , makeSquare (vec (-2) 1 3)    1   Z $ diffuse  1 [0, 255, 0] -- Front
+            , makeSquare (vec (-3) 1 4)    1   X $ diffuse  1 [255, 128, 0] -- Left
+            , makeSquare (vec (-2) 2 4)    1   Y $ diffuse  1 [255, 255, 0] -- Down
+            , makeSquare (vec (-2) 1 5)    1   Z $ diffuse  1 [0, 128, 255] -- Back
             , makeCirc   (vec (-1) 1 7)    3   Z $ diffuse  0 white -- Mirror
             , makeCirc   (vec (-1) 1 7.01) 3.2 Z $ diffuse  1 black -- Outline
             ]
